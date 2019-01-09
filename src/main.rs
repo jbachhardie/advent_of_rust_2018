@@ -1,3 +1,19 @@
+mod day1;
+
+use std::env;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+
 fn main() {
-    println!("Hello, world!");
+    let args: Vec<String> = env::args().collect();
+    let file = File::open(String::from("input/") + &args[1]).unwrap();
+    let buf_reader = BufReader::new(file);
+    let input = buf_reader.lines().map(|x| x.unwrap());
+    let args_ref: Vec<&str> = args.iter().map(|x| x.as_str()).collect();
+    let result = match &args_ref[..] {
+        [_, "day1", "std"] => day1::std(input),
+        _ => panic!("Function not found"),
+    };
+    println!("The result is {}", result.unwrap());
 }
