@@ -1,4 +1,5 @@
 mod day1;
+mod day2;
 
 use std::env;
 use std::fs::File;
@@ -14,6 +15,8 @@ fn main() {
     let result = match &args_ref[..] {
         [_, "day1", "std"] => day1::std(input),
         [_, "day1", "plus"] => day1::plus(input),
+        [_, "day2", "std"] => day2::std(input),
+        [_, "day2", "plus"] => day2::plus(input),
         _ => panic!("Function not found"),
     };
     println!("The result is {}", result.unwrap());
