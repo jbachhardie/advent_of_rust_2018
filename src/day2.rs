@@ -21,8 +21,33 @@ pub fn std(input: Vec<String>) -> Option<String> {
   Some(checksum.to_string())
 }
 
+fn no_differring_chars(a: &str, b: &str) -> String {
+  let mut result = String::new();
+  for i in 0..a.len() {
+    if let (Some(character_a), Some(character_b)) = (a.chars().nth(i), b.chars().nth(i)) {
+      if character_a == character_b {
+        result.push(character_a);
+      }
+    }
+  }
+  result
+}
+
 pub fn plus(input: Vec<String>) -> Option<String> {
-  None
+  let mut ids = input.clone();
+  loop {
+    match ids.pop() {
+      Some(candidate) => match ids
+        .iter()
+        .map(|x| no_differring_chars(&candidate, x))
+        .find(|x| x.len() == candidate.len() - 1)
+      {
+        Some(result) => break Some(result),
+        None => continue,
+      },
+      None => break None,
+    }
+  }
 }
 
 #[cfg(test)]
