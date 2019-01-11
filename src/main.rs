@@ -3,6 +3,7 @@ extern crate regex;
 mod day1;
 mod day2;
 mod day3;
+mod day4;
 
 use std::env;
 use std::fs::File;
@@ -22,6 +23,8 @@ fn main() {
         [_, "day2", "plus"] => day2::plus(input),
         [_, "day3", "std"] => day3::std(input),
         [_, "day3", "plus"] => day3::plus(input),
+        [_, "day4", "std"] => day4::std(input),
+        [_, "day4", "plus"] => day4::plus(input),
         _ => panic!("Function not found"),
     };
     println!("The result is {}", result.unwrap());
