@@ -1,55 +1,108 @@
 use regex::Regex;
+use std::collections::HashMap;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum GuardState {
   Asleep,
   Awake,
 }
 
-pub fn std(mut input: Vec<String>) -> Option<String> {
+struct Log<'a> {
+  date: &'a str,
+  guard: &'a str,
+  minutes: [GuardState; 60],
+}
+
+impl<'a> Log<'a> {
+  fn new(date: &'a str, guard: &'a str) -> Log<'a> {
+    Log {
+      date,
+      guard,
+      minutes: [GuardState::Awake; 60],
+    }
+  }
+  fn change_state(&mut self, at: usize, new_state: GuardState) {
+    let minutes = &mut self.minutes;
+    for i in at..minutes.len() {
+      minutes[i] = new_state;
+    }
+  }
+}
+
+fn get_new_guard(event: &str) -> Option<&str> {
+  lazy_static! {
+    static ref RE: Regex = Regex::new(r"Guard #(\d+) begins shift").unwrap();
+  }
+  if let Some(Some(guard_id)) = RE.captures(event).map(|x| x.get(1)) {
+    Some(guard_id.as_str())
+  } else {
+    None
+  }
+}
+
+fn process_input<'a>(input: &'a mut Vec<String>) -> Vec<Log<'a>> {
   let line_re = Regex::new(r"\[(\d{4})-(\d{2}-\d{2}) (\d{2}):(\d{2})] (.+)").unwrap();
-  let event_re = Regex::new(r"Guard #(\d+) begins shift").unwrap();
   let mut current_guard: Option<&str> = None;
-  let mut current_day: Option<&mut (&str, Option<&str>, [GuardState; 60])> = None;
-  let mut logs: Vec<(&str, Option<&str>, [GuardState; 60])> = Vec::new();
+  let mut logs: Vec<Log> = Vec::new();
   input.sort();
   for line in input.iter() {
     if let Some(captures) = line_re.captures(line) {
-      if let [Some(year), Some(date), Some(hour), Some(minute_raw), Some(event)] = &captures
+      if let [Some(_year), Some(date), Some(_hour), Some(minute_raw), Some(event)] = &captures
         .iter()
         .map(|x| x.map(|x| x.as_str()))
         .collect::<Vec<_>>()[..]
       {
-        if let Some(Some(guard_id)) = event_re.captures(event).map(|x| x.get(1)) {
-          current_guard = Some(guard_id.as_str());
+        if let Some(guard_id) = get_new_guard(event) {
+          current_guard.replace(guard_id);
         } else {
-          match current_day {
-            Some((current_date, _, _)) if current_date == date => (),
-            _ => {
-              logs.push((date, current_guard, [GuardState::Awake; 60]));
-              let last_index = logs.len() - 1;
-              current_day = Some(&mut logs[last_index]);
+          if let Some(log) = logs.last() {
+            if log.date != *date {
+              if let Some(guard) = current_guard {
+                logs.push(Log::new(date, guard))
+              }
             }
           }
-          if let Ok(minute) = minute_raw.parse::<usize>() {
-            if *event == "falls asleep" {
-              current_day.map(|(_, _, mut log)| {
-                for i in minute..log.len() {
-                  log[i] = GuardState::Asleep;
-                }
-              });
-            } else if *event == "wakes up" {
-              current_day.map(|(_, _, mut log)| {
-                for i in minute..log.len() {
-                  log[i] = GuardState::Awake;
-                }
-              });
+          if let Some(log) = logs.last_mut() {
+            if let Ok(minute) = minute_raw.parse::<usize>() {
+              match *event {
+                "falls asleep" => log.change_state(minute, GuardState::Asleep),
+                "wakes up" => log.change_state(minute, GuardState::Asleep),
+                &_ => (),
+              }
             }
           }
         }
       }
     }
   }
+  logs
+}
+
+fn find_guard_most_asleep<'a>(logs: &'a Vec<Log>) -> Option<&'a str> {
+  logs
+    .iter()
+    .fold(HashMap::new(), |mut acc, log| {
+      let entry = acc.entry(log.guard).or_insert(0);
+      *entry += log
+        .minutes
+        .iter()
+        .filter(|&&state| state == GuardState::Asleep)
+        .count();
+      acc
+    })
+    .iter()
+    .max_by_key(|(_, &val)| val)
+    .map(|(&key, _)| key)
+}
+
+fn find_minute_most_asleep<'a>(logs: &'a Vec<Log>, guard: &'a str) -> Option<u32> {
+  logs.iter().filter(|x| x.guard == guard).map(|x| x.minutes);
+  None
+}
+
+pub fn std(mut input: Vec<String>) -> Option<String> {
+  let logs = process_input(&mut input);
+  let sleepiest_guard = find_guard_most_asleep(&logs);
   None
 }
 
@@ -82,7 +135,7 @@ mod tests {
       "[1518-11-05 00:45] falls asleep".to_string(),
       "[1518-11-05 00:55] wakes up".to_string(),
     ];
-    let expected = Some("4".to_string());
+    let expected = Some("240".to_string());
     assert_eq!(std(input), expected);
   }
 
