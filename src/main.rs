@@ -7,6 +7,7 @@ mod day1;
 mod day2;
 mod day3;
 mod day4;
+mod day5;
 
 use std::env;
 use std::fs::File;
@@ -28,6 +29,8 @@ fn main() {
         [_, "day3", "plus"] => day3::plus(input),
         [_, "day4", "std"] => day4::std(input),
         [_, "day4", "plus"] => day4::plus(input),
+        [_, "day5", "std"] => day5::std(input),
+        [_, "day5", "plus"] => day5::plus(input),
         _ => panic!("Function not found"),
     };
     println!("The result is {}", result.unwrap());
