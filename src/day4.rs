@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::collections::HashMap;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum GuardState {
   Asleep,
   Awake,
@@ -47,26 +47,29 @@ fn process_input<'a>(input: &'a mut Vec<String>) -> Vec<Log<'a>> {
   input.sort();
   for line in input.iter() {
     if let Some(captures) = line_re.captures(line) {
-      if let [Some(_year), Some(date), Some(_hour), Some(minute_raw), Some(event)] = &captures
-        .iter()
-        .map(|x| x.map(|x| x.as_str()))
-        .collect::<Vec<_>>()[..]
+      if let [Some(_capture), Some(_year), Some(date), Some(_hour), Some(minute_raw), Some(event)] =
+        &captures
+          .iter()
+          .map(|x| x.map(|x| x.as_str()))
+          .collect::<Vec<_>>()[..]
       {
         if let Some(guard_id) = get_new_guard(event) {
           current_guard.replace(guard_id);
         } else {
-          if let Some(log) = logs.last() {
-            if log.date != *date {
-              if let Some(guard) = current_guard {
+          if let Some(guard) = current_guard {
+            if let Some(log) = logs.last() {
+              if log.date != *date {
                 logs.push(Log::new(date, guard))
               }
+            } else {
+              logs.push(Log::new(date, guard))
             }
           }
           if let Some(log) = logs.last_mut() {
             if let Ok(minute) = minute_raw.parse::<usize>() {
               match *event {
                 "falls asleep" => log.change_state(minute, GuardState::Asleep),
-                "wakes up" => log.change_state(minute, GuardState::Asleep),
+                "wakes up" => log.change_state(minute, GuardState::Awake),
                 &_ => (),
               }
             }
@@ -95,18 +98,38 @@ fn find_guard_most_asleep<'a>(logs: &'a Vec<Log>) -> Option<&'a str> {
     .map(|(&key, _)| key)
 }
 
-fn find_minute_most_asleep<'a>(logs: &'a Vec<Log>, guard: &'a str) -> Option<u32> {
-  logs.iter().filter(|x| x.guard == guard).map(|x| x.minutes);
-  None
+fn find_minute_most_asleep<'a>(logs: &'a Vec<Log>, guard: &'a str) -> Option<usize> {
+  let sum_by_minute = logs
+    .iter()
+    .filter(|x| x.guard == guard)
+    .map(|x| x.minutes)
+    .fold([0; 60], |mut acc, x| {
+      for i in 0..60 {
+        if x[i] == GuardState::Asleep {
+          acc[i] += 1;
+        }
+      }
+      acc
+    });
+  let max_value = sum_by_minute.iter().max().unwrap();
+  sum_by_minute.iter().position(|x| x == max_value)
 }
 
 pub fn std(mut input: Vec<String>) -> Option<String> {
   let logs = process_input(&mut input);
-  let sleepiest_guard = find_guard_most_asleep(&logs);
-  None
+  find_guard_most_asleep(&logs).and_then(|sleepiest_guard| {
+    find_minute_most_asleep(&logs, sleepiest_guard).and_then(|minute_most_asleep| {
+      sleepiest_guard
+        .parse::<usize>()
+        .ok()
+        .map(|guard_id| guard_id * minute_most_asleep)
+        .map(|x| x.to_string())
+    })
+  })
 }
 
-pub fn plus(input: Vec<String>) -> Option<String> {
+pub fn plus(mut input: Vec<String>) -> Option<String> {
+  let logs = process_input(&mut input);
   None
 }
 
@@ -160,7 +183,7 @@ mod tests {
       "[1518-11-05 00:45] falls asleep".to_string(),
       "[1518-11-05 00:55] wakes up".to_string(),
     ];
-    let expected = Some("3".to_string());
+    let expected = Some("4455".to_string());
     assert_eq!(plus(input), expected);
   }
 }
