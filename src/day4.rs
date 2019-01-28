@@ -98,7 +98,7 @@ fn find_guard_most_asleep<'a>(logs: &'a Vec<Log>) -> Option<&'a str> {
     .map(|(&key, _)| key)
 }
 
-fn find_minute_most_asleep<'a>(logs: &'a Vec<Log>, guard: &'a str) -> Option<usize> {
+fn find_minute_most_asleep<'a>(logs: &'a Vec<Log>, guard: &'a str) -> Option<(usize, usize)> {
   let sum_by_minute = logs
     .iter()
     .filter(|x| x.guard == guard)
@@ -111,14 +111,18 @@ fn find_minute_most_asleep<'a>(logs: &'a Vec<Log>, guard: &'a str) -> Option<usi
       }
       acc
     });
-  let max_value = sum_by_minute.iter().max().unwrap();
-  sum_by_minute.iter().position(|x| x == max_value)
+  sum_by_minute.iter().max().and_then(|max_value| {
+    sum_by_minute
+      .iter()
+      .position(|x| x == max_value)
+      .map(|max_index| (max_index, *max_value))
+  })
 }
 
 pub fn std(mut input: Vec<String>) -> Option<String> {
   let logs = process_input(&mut input);
   find_guard_most_asleep(&logs).and_then(|sleepiest_guard| {
-    find_minute_most_asleep(&logs, sleepiest_guard).and_then(|minute_most_asleep| {
+    find_minute_most_asleep(&logs, sleepiest_guard).and_then(|(minute_most_asleep, _)| {
       sleepiest_guard
         .parse::<usize>()
         .ok()
@@ -130,7 +134,15 @@ pub fn std(mut input: Vec<String>) -> Option<String> {
 
 pub fn plus(mut input: Vec<String>) -> Option<String> {
   let logs = process_input(&mut input);
-  None
+  let mut guards = logs.iter().map(|x| x.guard).collect::<Vec<_>>();
+  guards.sort();
+  guards.dedup();
+  guards
+    .iter()
+    .map(|guard| (guard, find_minute_most_asleep(&logs, guard).unwrap()))
+    .max_by(|(_, (_, x)), (_, (_, y))| x.cmp(y))
+    .and_then(|(guard, (minute, _))| guard.parse::<usize>().ok().map(|guard| guard * minute))
+    .map(|x| x.to_string())
 }
 
 #[cfg(test)]
