@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+#[derive(Copy, Clone)]
 struct Unit {
   class: char,
   polarity: bool,
@@ -15,6 +18,7 @@ impl Unit {
   }
 }
 
+#[derive(Clone)]
 struct Polymer(Vec<Unit>);
 
 impl Polymer {
@@ -42,6 +46,17 @@ impl Polymer {
     }
   }
 
+  fn remove_unit_of_class(&mut self, &class: &char) {
+    let mut i = 0;
+    while i < self.len() {
+      if self.0[i].class == class {
+        self.0.remove(i);
+      } else {
+        i += 1;
+      }
+    }
+  }
+
   fn len(&self) -> usize {
     self.0.len()
   }
@@ -57,6 +72,15 @@ impl std::str::FromStr for Polymer {
   }
 }
 
+impl IntoIterator for Polymer {
+  type Item = Unit;
+  type IntoIter = ::std::vec::IntoIter<Unit>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.into_iter()
+  }
+}
+
 pub fn std(input: Vec<String>) -> Option<String> {
   let mut polymer = input[0].parse::<Polymer>().unwrap();
   polymer.react();
@@ -64,7 +88,21 @@ pub fn std(input: Vec<String>) -> Option<String> {
 }
 
 pub fn plus(mut input: Vec<String>) -> Option<String> {
-  None
+  let mut possible_lengths: HashMap<char, usize> = HashMap::new();
+  let polymer = input[0].parse::<Polymer>().unwrap();
+  for unit in polymer.clone() {
+    if !possible_lengths.contains_key(&unit.class) {
+      let mut subpolymer = polymer.clone();
+      subpolymer.remove_unit_of_class(&unit.class);
+      subpolymer.react();
+      possible_lengths.insert(unit.class, subpolymer.len());
+    }
+  }
+  possible_lengths
+    .iter()
+    .map(|x| x.1)
+    .min()
+    .map(|x| x.to_string())
 }
 
 #[cfg(test)]
