@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::mpsc;
+use std::thread;
 
 #[derive(Copy, Clone)]
 struct Unit {
@@ -87,22 +89,42 @@ pub fn std(input: Vec<String>) -> Option<String> {
   Some(polymer.len().to_string())
 }
 
-pub fn plus(mut input: Vec<String>) -> Option<String> {
-  let mut possible_lengths: HashMap<char, usize> = HashMap::new();
+const THREADS: usize = 8;
+
+pub fn plus(input: Vec<String>) -> Option<String> {
+  let mut units: HashSet<char> = HashSet::new();
+  let mut threads = vec![];
+  let (tx, rx) = mpsc::channel();
   let polymer = input[0].parse::<Polymer>().unwrap();
   for unit in polymer.clone() {
-    if !possible_lengths.contains_key(&unit.class) {
-      let mut subpolymer = polymer.clone();
-      subpolymer.remove_unit_of_class(&unit.class);
-      subpolymer.react();
-      possible_lengths.insert(unit.class, subpolymer.len());
-    }
+    units.insert(unit.class);
   }
-  possible_lengths
-    .iter()
-    .map(|x| x.1)
-    .min()
-    .map(|x| x.to_string())
+  let num_threads = std::cmp::min(THREADS, units.len());
+  let mut units_iter = units.iter();
+  while threads.len() < num_threads {
+    let mut chunk = vec![];
+    while chunk.len() < units.len() / num_threads {
+      if let Some(unit) = units_iter.next() {
+        chunk.push(unit.clone());
+      }
+    }
+    let tx1 = tx.clone();
+    let polymer_clone = polymer.clone();
+    let thread = thread::spawn(move || {
+      let mut possible_lengths_chunk = vec![];
+      for unit in chunk {
+        let mut subpolymer = polymer_clone.clone();
+        subpolymer.remove_unit_of_class(&unit);
+        subpolymer.react();
+        possible_lengths_chunk.push(subpolymer.len());
+      }
+      if let Some(min_value) = possible_lengths_chunk.iter().min() {
+        tx1.send(min_value.clone()).unwrap();
+      }
+    });
+    threads.push(thread);
+  }
+  rx.iter().take(num_threads).min().map(|x| x.to_string())
 }
 
 #[cfg(test)]
